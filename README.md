@@ -26,9 +26,11 @@ https://aws.amazon.com/marketplace/pp/B00FYCDDTE
 
 ### Launch the stack
 
-2. Launch cloudformation stack from template:
-https://code.amazon.com/packages/ECS-Machine-Learning/blobs/mainline/--/dsstne.template
-(The template will build the dsstne container on the ECS cluster instance. Note this can take 30-45 minutes and the cloudformation stack will not report completion until the entire build process is done.)
+2. Choose **Launch Stack** to launch the template in the us-east-1 region in your account:
+[![Launch ECS Machine Learning into North Virginia with CloudFormation](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=ecs-service-discovery&templateURL=https://s3.amazonaws.com/ecs-machine-learning/machinelearning.template)
+(The template will build a DSSTNE container on the ECS cluster instance. Note this can take 30-45 minutes and the cloudformation stack will not report completion until the entire build process is done.)
+
+2. Give a Stack Name and select your preferred key name. If you do not have a key available, see [Amazon EC2 Key Pairs][4].
 
 ### Run the model
 
@@ -58,3 +60,4 @@ https://github.com/amznlabs/amazon-dsstne/blob/master/benchmarks/Benchmark.md
 [1]: http://www.nvidia.com/object/cuda_home_new.html
 [2]: http://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_defintions.html
 [3]: http://docs.aws.amazon.com/AmazonECS/latest/developerguide/scheduling_tasks.html
+[4]: http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html
