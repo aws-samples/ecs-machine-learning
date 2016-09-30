@@ -18,7 +18,7 @@ In this template, we spin up an ECS Cluster with a single GPU instance in an aut
 
 Once the Cloudformation template completes, take a look at the “Outputs” tab to get an idea of where to look for your new resources. 
 
-### Prerequisistes: Accepting terms
+### Prerequisistes: accepting terms
 
 0. Accept AWS Marketplace terms for Amazon Linux AMI with NVIDIA GRID GPU Driver by going to the [MarketPlace page][9]
 
