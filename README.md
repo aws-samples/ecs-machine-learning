@@ -10,7 +10,7 @@ In order to run GPU-enabled work on an ECS cluster, a Docker image configured wi
 
 Once the ECS Tasks are run, the ECS [scheduler][3] finds a suitable place to run the containers by identifying an instance in the cluster with available resources. As shown in the below architecture diagram, ECS can place containers into the cluster of GPU instances (“GPU slaves” in the diagram)
 
-<img src="https://s3.amazonaws.com/ecs-machine-learning/architecture.png">
+<img src="https://s3.amazonaws.com/ecs-machine-learning/architecture.png" width="450" height="316">
 
 ## Deploying the architecture
 
