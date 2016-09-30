@@ -10,7 +10,7 @@ In order to run GPU-enabled work on an ECS cluster, a Docker image configured wi
 
 Once the ECS Tasks are run, the ECS [scheduler][3] finds a suitable place to run the containers by identifying an instance in the cluster with available resources. As shown in the below architecture diagram, ECS can place containers into the cluster of GPU instances (“GPU slaves” in the diagram)
 
-![Build, tag, and push Docker image Console](https://s3.amazonaws.com/ecs-machine-learning/architecture.png)
+<img src="https://s3.amazonaws.com/ecs-machine-learning/architecture.png">
 
 ## Deploying the architecture
 
@@ -54,9 +54,6 @@ https://github.com/amznlabs/amazon-dsstne/blob/master/benchmarks/Benchmark.md
 10. Bonus step 2: Modify the cfntemplate (or launch a new stack) and use a g2.8xlarge instead of g2.2xlarge. Repeat step 4, but override the training command in the task definition environment variables to use MPI to take advantage of all 4 GPUs: mpirun -np 4 train -c ....
 
 11. In both bonus steps, look at the CloudWatch Logs to view the task logs (different training commands, taking advantage of multiple GPUs, etc.)
-
-
-![Build, tag, and push Docker image Console](https://s3.amazonaws.com/ecs-machine-learning/architecture.png)
 
 [1]: http://www.nvidia.com/object/cuda_home_new.html
 [2]: http://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_defintions.html
