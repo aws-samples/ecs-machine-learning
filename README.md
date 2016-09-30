@@ -18,15 +18,15 @@ In this template, we spin up an ECS Cluster with a single GPU instance in an aut
 
 Once the Cloudformation template completes, take a look at the “Outputs” tab to get an idea of where to look for your new resources. 
 
-### Prerequisistes
+### Prerequisistes: Accepting terms
 
+0. Accept AWS Marketplace terms for Amazon Linux AMI with NVIDIA GRID GPU Driver by going to the [MarketPlace page][9]
 
-### Accepting terms
+1. Click Continue on the right.
 
-0. Accept AWS Marketplace terms for Amazon Linux AMI with NVIDIA GRID GPU Driver:
-https://aws.amazon.com/marketplace/pp/B00FYCDDTE
+2. Click on the Manual Launch tab and click on the Accept Software Terms button.
 
-1. Wait for email confirmation that marketplace subscription is active
+3. Wait for an email confirmation that your marketplace subscription is active.
 
 ### Launch the stack
 
@@ -73,3 +73,4 @@ Unfortunately, it would take far too much page space to explain the details of t
 [6]: https://github.com/amznlabs/amazon-dsstne/blob/master/benchmarks/Benchmark.md
 [7]: https://console.aws.amazon.com/cloudwatch/home?region=us-east-1
 [8]: https://blogs.aws.amazon.com/bigdata/post/TxGEL8IJ0CAXTK/Generating-Recommendations-at-Amazon-Scale-with-Apache-Spark-and-Amazon-DSSTNE
+[9]: https://aws.amazon.com/marketplace/pp/B00FYCDDTE
