@@ -1,0 +1,720 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Creates environment for running Amazon DSSTNE on EC2 Container Service",
+  "Metadata": {
+    "Maintainer": {
+      "Description": "Chad Schmutzer <schmutze@amazon.com>"
+    },
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [{
+        "Label": {
+          "default": "SSH Access"
+        },
+        "Parameters": ["KeyName", "SSHLocation"]
+      }, {
+        "Label": {
+          "default": "VPC, Subnets, and Instance"
+        },
+        "Parameters": ["VpcId", "Subnets", "ECSInstanceType"]
+      }, {
+        "Label": {
+          "default": "Data and Config"
+        },
+        "Parameters": ["DataUrl", "TrainingConfigUrl"]
+      }],
+      "ParameterLabels": {
+        "KeyName": {
+          "default": "Key name"
+        },
+        "SSHLocation": {
+          "default": "SSH CIDR range"
+        },
+        "VpcId": {
+          "default": "VPC"
+        },
+        "Subnets": {
+          "default": "Subnets"
+        },
+        "ECSInstanceType": {
+          "default": "ECS instance type"
+        },
+        "DataUrl": {
+          "default": "Data URL"
+        },
+        "TrainingConfigUrl": {
+          "default": "Training config URL"
+        }
+      }
+    }
+  },
+  "Parameters": {
+    "KeyName": {
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "Description": "Name of an existing EC2 KeyPair"
+    },
+    "ECSInstanceType": {
+      "Type": "String",
+      "Description": "ECS instance type",
+      "Default": "g2.2xlarge",
+      "AllowedValues": ["g2.2xlarge", "g2.8xlarge"],
+      "ConstraintDescription": "Must be g2.2xlarge or g2.8xlarge"
+    },
+    "VpcId": {
+      "Type": "AWS::EC2::VPC::Id",
+      "Description": "Vpc ID of your existing Virtual Private Cloud (VPC)",
+      "ConstraintDescription": "Must be the VPC ID of an existing Virtual Private Cloud"
+    },
+    "Subnets": {
+      "Type": "List<AWS::EC2::Subnet::Id>",
+      "Description": "Please make sure you select 1 or more subnets in the Virtual Private Cloud (VPC) ID you chose above",
+      "ConstraintDescription": "Must be a list of existing subnets in the selected Virtual Private Cloud"
+    },
+    "SSHLocation": {
+      "Description": "Restrict SSH access to CIDR range (default can be accessed from anywhere)",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "Default": "0.0.0.0/0",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "Must be a valid CIDR range of the form x.x.x.x/x"
+    },
+    "DataUrl": {
+      "Description": "Neural Network Modeling data URL",
+      "Type": "String",
+      "ConstraintDescription": "Must be valid URL",
+      "Default": "https://s3-us-west-2.amazonaws.com/amazon-dsstne-samples/data/ml20m-all"
+    },
+    "TrainingConfigUrl": {
+      "Description": "Training config URL",
+      "Type": "String",
+      "ConstraintDescription": "Must be a valid URL",
+      "Default": "https://s3-us-west-2.amazonaws.com/amazon-dsstne-samples/configs/config.json"
+    }
+  },
+  "Mappings": {
+    "AmazonLinuxAMI": {
+      "us-east-1": {
+        "AMI": "ami-2e5e9c43"
+      },
+      "us-west-2": {
+        "AMI": "ami-83b770e3"
+      },
+      "us-west-1": {
+        "AMI": "ami-fd76329d"
+      },
+      "eu-west-1": {
+        "AMI": "ami-b9bd25ca"
+      },
+      "eu-central-1": {
+        "AMI": "ami-7f04ec10"
+      },
+      "ap-northeast-1": {
+        "AMI": "ami-e0ee1981"
+      },
+      "ap-southeast-1": {
+        "AMI": "ami-0cb5676f"
+      },
+      "ap-southeast-2": {
+        "AMI": "ami-a71c34c4"
+      },
+      "ap-south-1": {
+        "AMI": "ami-f5b2d89a"
+      }
+    }
+  },
+  "Resources": {
+    "CloudWatchLogsGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "RetentionInDays": 7
+      }
+    },
+    "S3BucketResults": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "AccessControl": "BucketOwnerFullControl"
+      }
+    },
+    "ECSInstanceAutoScalingGroup": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "Properties": {
+        "VPCZoneIdentifier": {
+          "Ref": "Subnets"
+        },
+        "LaunchConfigurationName": {
+          "Ref": "ECSInstanceLaunchConfiguration"
+        },
+        "MinSize": "1",
+        "MaxSize": "1",
+        "DesiredCapacity": "1",
+        "Tags": [{
+          "Key": "Name",
+          "Value": {
+            "Ref": "AWS::StackName"
+          },
+          "PropagateAtLaunch": "true"
+        }]
+      },
+      "CreationPolicy": {
+        "ResourceSignal": {
+          "Count": "1",
+          "Timeout": "PT90M"
+        }
+      }
+    },
+    "ECSInstanceLaunchConfiguration": {
+      "Type": "AWS::AutoScaling::LaunchConfiguration",
+      "Metadata": {
+        "AWS::CloudFormation::Init": {
+          "config": {
+            "packages": {
+              "yum": {
+                "git": [],
+                "docker": [],
+                "ecs-init": []
+              }
+            },
+            "files": {
+              "/home/ec2-user/.aws/config": {
+                "mode": "000644",
+                "owner": "ec2-user",
+                "group": "root",
+                "content": {
+                  "Fn::Join": [
+                    "", [
+                      "[default]\n",
+                      "region = ", {
+                        "Ref": "AWS::Region"
+                      },
+                      "\n"
+                    ]
+                  ]
+                }
+              },
+              "/root/.aws/config": {
+                "mode": "000644",
+                "owner": "root",
+                "group": "root",
+                "content": {
+                  "Fn::Join": [
+                    "", [
+                      "[default]\n",
+                      "region = ", {
+                        "Ref": "AWS::Region"
+                      },
+                      "\n"
+                    ]
+                  ]
+                }
+              },
+              "/etc/ecs/ecs.config": {
+                "content": {
+                  "Fn::Join": [
+                    "", [
+                      "ECS_CLUSTER=", {
+                        "Ref": "ECSCluster"
+                      },
+                      "\n",
+                      "ECS_AVAILABLE_LOGGING_DRIVERS=[\"json-file\",\"awslogs\"]\n"
+                    ]
+                  ]
+                },
+                "mode": "000644",
+                "owner": "root",
+                "group": "root"
+              },
+              "/etc/lvm/profile/docker-thinpool.profile": {
+                "content": {
+                  "Fn::Join": [
+                    "", [
+                      "activation {\n",
+                      " thin_pool_autoextend_threshold=80\n",
+                      " thin_pool_autoextend_percent=20\n",
+                      "}\n"
+                    ]
+                  ]
+                },
+                "mode": "000644",
+                "owner": "root",
+                "group": "root"
+              },
+              "/etc/sysconfig/docker-storage": {
+                "content": {
+                  "Fn::Join": [
+                    "", [
+                      "DOCKER_STORAGE_OPTIONS=\"--storage-driver=devicemapper --storage-opt=dm.thinpooldev=/dev/mapper/docker-thinpool --storage-opt dm.use_deferred_removal=true\"\n"
+                    ]
+                  ]
+                },
+                "mode": "000644",
+                "owner": "root",
+                "group": "root"
+              },
+              "/home/ec2-user/Dockerfile": {
+                "mode": "000644",
+                "owner": "root",
+                "group": "root",
+                "content": {
+                  "Fn::Join": [
+                    "", [
+                      "FROM ubuntu:14.04\n",
+                      "RUN apt-get update && \\\n",
+                      "   apt-get install -y \\\n",
+                      "   make \\\n",
+                      "   build-essential \\\n",
+                      "   cmake \\\n",
+                      "   g++ \\\n",
+                      "   gcc \\\n",
+                      "   libatlas-base-dev \\\n",
+                      "   curl \\\n",
+                      "   python-pip\n",
+                      "\n",
+                      "RUN pip install awscli\n",
+                      "\n",
+                      "ENV CUDA_MAJOR=7.5 \\\n",
+                      "CUDA_VERSION=7.5.18 \\\n",
+                      "GPU_DRIVER_VERSION=352.79 \n",
+                      "\n",
+                      "RUN cd /tmp && \\\n",
+                      "   curl -LO http://developer.download.nvidia.com/compute/cuda/${CUDA_MAJOR}/Prod/local_installers/cuda_${CUDA_VERSION}_linux.run && \\\n",
+                      "   chmod +x cuda_*_linux.run && \\\n",
+                      "   ./cuda_*_linux.run -extract=`pwd`\n",
+                      "\n",
+                      "RUN cd /tmp && \\\n",
+                      "   curl -LO http://us.download.nvidia.com/XFree86/Linux-x86_64/$GPU_DRIVER_VERSION/NVIDIA-Linux-x86_64-$GPU_DRIVER_VERSION.run && \\\n",
+                      "   chmod +x ./NVIDIA-Linux-x86_64-$GPU_DRIVER_VERSION.run && \\\n",
+                      "   ./NVIDIA-Linux-x86_64-$GPU_DRIVER_VERSION.run -s --no-kernel-module && \\\n",
+                      "   ./cuda-linux64-rel-*.run -noprompt && \\\n",
+                      "   rm -rf /tmp/*\n",
+                      "RUN cd /tmp && \\\n",
+                      "   rm -rf *\n",
+                      "\n",
+                      "ENV PATH=/usr/local/cuda/bin:${PATH}\n",
+                      "RUN echo \"/usr/local/cuda/lib64\" >> /etc/ld.so.conf && \\\n",
+                      "   ldconfig\n",
+                      "\n",
+                      "RUN cd /tmp && \\\n",
+                      "   curl -LO http://www.open-mpi.org/software/ompi/v1.8/downloads/openmpi-1.8.2.tar.gz && \\\n",
+                      "   tar xvfz openmpi-1.8.2.tar.gz && \\\n",
+                      "   cd openmpi-1.8.2 && \\\n",
+                      "   ./configure --prefix=/usr/local/openmpi && \\\n",
+                      "   make -j17 && \\\n",
+                      "   sudo make install && \\\n",
+                      "   rm -rf /tmp/*\n",
+                      "\n",
+                      "RUN cd /tmp && \\\n",
+                      "   apt-get install -y python && \\\n",
+                      "   curl -LO https://github.com/open-source-parsers/jsoncpp/archive/svn-import.tar.gz && \\\n",
+                      "   tar xvfz svn-import.tar.gz && \\\n",
+                      "   cd jsoncpp-svn-import && \\\n",
+                      "   mkdir -p build/release && \\\n",
+                      "   cd build/release && \\\n",
+                      "   cmake -DCMAKE_BUILD_TYPE=release -DJSONCPP_LIB_BUILD_SHARED=OFF -G \"Unix Makefiles\" ../.. && \\\n",
+                      "   make -j17 && \\\n",
+                      "   make install && \\\n",
+                      "   rm -rf /tmp/*\n",
+                      "\n",
+                      "RUN cd /tmp && \\\n",
+                      "   curl -LO ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4/hdf5-1.8.9.tar.gz && \\\n",
+                      "   tar xvfz hdf5-1.8.9.tar.gz && \\\n",
+                      "   cd hdf5-1.8.9 && \\\n",
+                      "   ./configure --prefix=/usr/local && \\\n",
+                      "   make -j17 && \\\n",
+                      "   make install && \\\n",
+                      "   rm -rf /tmp/*\n",
+                      "\n",
+                      "RUN cd /tmp && \\\n",
+                      "   curl -LO ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4/zlib-1.2.8.tar.gz && \\\n",
+                      "   tar xvf zlib-1.2.8.tar.gz && \\\n",
+                      "   cd zlib-1.2.8 && \\\n",
+                      "   ./configure && \\\n",
+                      "   make -j17 && \\\n",
+                      "   make install && \\\n",
+                      "   rm -rf /tmp/*\n",
+                      "\n",
+                      "RUN cd /tmp && \\\n",
+                      "   curl -LO ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4.1.3.tar.gz && \\\n",
+                      "   tar xvf netcdf-4.1.3.tar.gz && \\\n",
+                      "   cd netcdf-4.1.3 && \\\n",
+                      "   ./configure --prefix=/usr/local && \\\n",
+                      "   make -j17 && \\\n",
+                      "   make install && \\\n",
+                      "   rm -rf /tmp/*\n",
+                      "\n",
+                      "RUN cd /tmp && \\\n",
+                      "   curl -LO http://www.unidata.ucar.edu/downloads/netcdf/ftp/netcdf-cxx4-4.2.tar.gz && \\\n",
+                      "   tar xvf netcdf-cxx4-4.2.tar.gz && \\\n",
+                      "   cd netcdf-cxx4-4.2 && \\\n",
+                      "   ./configure --prefix=/usr/local && \\\n",
+                      "   make -j17 && \\\n",
+                      "   make install && \\\n",
+                      "   rm -rf /tmp/*\n",
+                      "\n",
+                      "RUN cd /tmp && \\\n",
+                      "   curl -LO https://github.com/NVlabs/cub/archive/1.5.2.zip && \\\n",
+                      "   apt-get install -y unzip && \\\n",
+                      "   unzip 1.5.2.zip && \\\n",
+                      "   cp -rf cub-1.5.2/cub/ /usr/local/include/ && \\\n",
+                      "   rm -rf /tmp/*\n",
+                      "\n",
+                      "ENV PATH=/usr/local/openmpi/bin/:/usr/local/cuda-7.0/bin/:${PATH} \\\n",
+                      "   LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}\n",
+                      "\n",
+                      "COPY src /opt/amazon/dsstne/src\n",
+                      "\n",
+                      "RUN cd /opt/amazon/dsstne/src/amazon/dsstne && \\\n",
+                      "   make\n",
+                      "\n",
+                      "ENV PATH /opt/amazon/dsstne/src/amazon/dsstne/bin:${PATH}\n"
+                    ]
+                  ]
+                }
+              }
+            },
+            "services": {
+              "sysvinit": {
+                "docker": {
+                  "enabled": "true",
+                  "ensureRunning": "false"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Properties": {
+        "ImageId": {
+          "Fn::FindInMap": ["AmazonLinuxAMI", {
+            "Ref": "AWS::Region"
+          }, "AMI"]
+        },
+        "InstanceType": {
+          "Ref": "ECSInstanceType"
+        },
+        "IamInstanceProfile": {
+          "Ref": "ECSInstanceProfile"
+        },
+        "SecurityGroups": [{
+          "Ref": "ECSInstanceSecurityGroup"
+        }],
+        "BlockDeviceMappings": [{
+          "DeviceName": "/dev/xvda",
+          "Ebs": {
+            "VolumeSize": "30"
+          }
+        }, {
+          "DeviceName": "/dev/xvde",
+          "VirtualName": "ephemeral0"
+        }],
+        "KeyName": {
+          "Ref": "KeyName"
+        },
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "", [
+                "#!/bin/bash -xe\n",
+                "yum update -y aws-cfn-bootstrap\n",
+                "sed -i \"s/\\/media\\/ephemeral0/null/g\" /etc/cloud/cloud.cfg\n",
+                "umount /media/ephemeral0\n",
+                "sed -i \"/\\/dev\\/xvde/d\" /etc/fstab\n",
+                "pvcreate -y /dev/xvde\n",
+                "vgcreate docker /dev/xvde\n",
+                "lvcreate --wipesignatures y -n thinpool docker -l 95%VG\n",
+                "lvcreate --wipesignatures y -n thinpoolmeta docker -l 1%VG\n",
+                "lvconvert -y --zero n -c 512K --thinpool docker/thinpool --poolmetadata docker/thinpoolmeta\n",
+                "# Install the files and packages from the metadata\n",
+                "/opt/aws/bin/cfn-init -v ",
+                "         --stack ", {
+                  "Ref": "AWS::StackName"
+                },
+                "         --resource ECSInstanceLaunchConfiguration ",
+                "         --region ", {
+                  "Ref": "AWS::Region"
+                }, "\n",
+                "service docker stop\n",
+                "lvchange --metadataprofile docker-thinpool docker/thinpool\n",
+                "lvs -o+seg_monitor\n",
+                "rm -rf /var/lib/docker/*\n",
+                "service docker start\n",
+                "/sbin/start ecs\n",
+                "git clone https://github.com/amznlabs/amazon-dsstne.git\n",
+                "cd amazon-dsstne/\n",
+                "cp /home/ec2-user/Dockerfile .\n",
+                "docker build -t ", {
+                  "Ref": "ECRRepository"
+                },
+                " .\n",
+                "aws ecr get-login | sh\n",
+                "docker tag ", {
+                  "Ref": "ECRRepository"
+                },
+                ":latest ", {
+                  "Ref": "AWS::AccountId"
+                },
+                ".dkr.ecr.", {
+                  "Ref": "AWS::Region"
+                },
+                ".amazonaws.com/", {
+                  "Ref": "ECRRepository"
+                },
+                ":latest\n",
+                "docker push ", {
+                  "Ref": "AWS::AccountId"
+                },
+                ".dkr.ecr.", {
+                  "Ref": "AWS::Region"
+                },
+                ".amazonaws.com/", {
+                  "Ref": "ECRRepository"
+                },
+                ":latest\n",
+                "# Signal the status from cfn-init\n",
+                "/opt/aws/bin/cfn-signal -e $? ",
+                "         --stack ", {
+                  "Ref": "AWS::StackName"
+                },
+                "         --resource ECSInstanceAutoScalingGroup ",
+                "         --region ", {
+                  "Ref": "AWS::Region"
+                }, "\n"
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "ECSInstanceSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Security Group for ECSInstance",
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "SecurityGroupIngress": [{
+          "IpProtocol": "tcp",
+          "FromPort": "22",
+          "ToPort": "22",
+          "CidrIp": {
+            "Ref": "SSHLocation"
+          }
+        }],
+        "Tags": [{
+          "Key": "Name",
+          "Value": "ECSInstanceSecurityGroup"
+        }]
+      }
+    },
+    "ECSInstanceRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{
+            "Effect": "Allow",
+            "Principal": {
+              "Service": ["ec2.amazonaws.com"]
+            },
+            "Action": ["sts:AssumeRole"]
+          }]
+        },
+        "Path": "/",
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
+        ],
+        "Policies": [{
+          "PolicyName": "Amazon-DSSTNE",
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [{
+              "Effect": "Allow",
+              "Action": "s3:ListBucket",
+              "Resource": {
+                "Fn::Join": [
+                  "", [
+                    "arn:aws:s3:::", {
+                      "Ref": "S3BucketResults"
+                    }
+                  ]
+                ]
+              }
+            }, {
+              "Effect": "Allow",
+              "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:DeleteObject"
+              ],
+              "Resource": {
+                "Fn::Join": [
+                  "", [
+                    "arn:aws:s3:::", {
+                      "Ref": "S3BucketResults"
+                    },
+                    "/*"
+                  ]
+                ]
+              }
+            }, {
+              "Effect": "Allow",
+              "Action": [
+                "ecr:DescribeRepositories",
+                "ecr:ListImages",
+                "ecr:InitiateLayerUpload",
+                "ecr:UploadLayerPart",
+                "ecr:CompleteLayerUpload",
+                "ecr:PutImage"
+              ],
+              "Resource": {
+                "Fn::Join": [
+                  "", [
+                    "arn:aws:ecr:", {
+                      "Ref": "AWS::Region"
+                    },
+                    ":", {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":repository/", {
+                      "Ref": "ECRRepository"
+                    }
+                  ]
+                ]
+              }
+            }]
+          }
+        }]
+      }
+    },
+    "ECSInstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "DependsOn": "ECSInstanceRole",
+      "Properties": {
+        "Path": "/",
+        "Roles": [{
+          "Ref": "ECSInstanceRole"
+        }]
+      }
+    },
+    "ECSServiceRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{
+            "Effect": "Allow",
+            "Principal": {
+              "Service": ["ecs.amazonaws.com"]
+            },
+            "Action": ["sts:AssumeRole"]
+          }]
+        },
+        "Path": "/",
+        "ManagedPolicyArns": ["arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceRole"]
+      }
+    },
+    "ECSCluster": {
+      "Type": "AWS::ECS::Cluster"
+    },
+    "ECSTaskDefinitionDsstne": {
+      "Type": "AWS::ECS::TaskDefinition",
+      "Properties": {
+        "ContainerDefinitions": [{
+          "Name": "Amazon-DSSTNE",
+          "Image": {
+            "Fn::Join": [
+              "", [{
+                  "Ref": "AWS::AccountId"
+                },
+                ".dkr.ecr.", {
+                  "Ref": "AWS::Region"
+                },
+                ".amazonaws.com/", {
+                  "Ref": "ECRRepository"
+                },
+                ":latest"
+              ]
+            ]
+          },
+          "Memory": "15000",
+          "Privileged": "true",
+          "Environment": [{
+            "Name": "DATAURL",
+            "Value": {
+              "Ref": "DataUrl"
+            }
+          }, {
+            "Name": "TRAININGCONFIGURL",
+            "Value": {
+              "Ref": "TrainingConfigUrl"
+            }
+          }, {
+            "Name": "S3BUCKETRESULTS",
+            "Value": {
+              "Ref": "S3BucketResults"
+            }
+          }, {
+            "Name": "GENERATEINPUTCMD",
+            "Value": "generateNetCDF -d gl_input -i data -o gl_input.nc -f features_input -s samples_input -c"
+          }, {
+            "Name": "GENERATEOUTPUTCMD",
+            "Value": "generateNetCDF -d gl_output -i data -o gl_output.nc -f features_output -s samples_input -c"
+          }, {
+            "Name": "TRAINCMD",
+            "Value": "train -c config -i gl_input.nc -o gl_output.nc -n gl.nc -b 256 -e 10"
+          }, {
+            "Name": "PREDICTCMD",
+            "Value": "predict -b 1024 -d gl -i features_input -o features_output -k 10 -n gl.nc -f data -s results -r data"
+          }],
+          "EntryPoint": ["/bin/bash", "-c"],
+          "Command": ["curl -Lo data $DATAURL && echo \"running $GENERATEINPUTCMD\" && $GENERATEINPUTCMD && echo \"running $GENERATEOUTPUTCMD\" && $GENERATEOUTPUTCMD && curl -Lo config $TRAININGCONFIGURL && echo \"running $TRAINCMD\" && $TRAINCMD && echo \"running $PREDICTCMD\" && $PREDICTCMD && DATE=`date -Iseconds` && echo \"results being written to s3://$S3BUCKETRESULTS/results.$HOSTNAME.$DATE\" && aws s3 cp results s3://$S3BUCKETRESULTS/results.$HOSTNAME.$DATE"],
+          "LogConfiguration": {
+            "LogDriver": "awslogs",
+            "Options": {
+              "awslogs-group": {
+                "Ref": "CloudWatchLogsGroup"
+              },
+              "awslogs-region": {
+                "Ref": "AWS::Region"
+              }
+            }
+          }
+        }]
+      }
+    },
+    "ECRRepository": {
+      "Type": "AWS::ECR::Repository"
+    }
+  },
+  "Outputs": {
+    "ECSClusterName": {
+      "Description": "Name of the ECS cluster",
+      "Value": {
+        "Ref": "ECSCluster"
+      }
+    },
+    "DsstneTaskDefinition": {
+      "Description": "The task definition for Amazon DSSTNE",
+      "Value": {
+        "Ref": "ECSTaskDefinitionDsstne"
+      }
+    },
+    "CloudWatchLogsGroup": {
+      "Description": "Name of the CloudWatch Logs Group",
+      "Value": {
+        "Ref": "CloudWatchLogsGroup"
+      }
+    },
+    "S3BucketResults": {
+      "Description": "The S3 bucket for storing results",
+      "Value": {
+        "Ref": "S3BucketResults"
+      }
+    },
+    "ECRRepository": {
+      "Description": "The ECR Repository for the Amazon DSSTNE container",
+      "Value": {
+        "Ref": "ECRRepository"
+      }
+    }
+  }
+}
