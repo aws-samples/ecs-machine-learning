@@ -38,7 +38,7 @@ The instances launched will need to have access to the internet hence either be 
 2. Choose **Launch Stack** to launch the template in the us-east-1 region in your account:
 [![Launch ECS Machine Learning into North Virginia with CloudFormation](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=ecs-machine-learning&templateURL=https://s3.amazonaws.com/ecs-machine-learning/machinelearning.template)
 
-(The template will build a DSSTNE container on the ECS cluster instance. Note this can take up to 20 minutes and the CloudFormation stack will not report completion until the entire build process is done.)
+(The template will build a DSSTNE container on the ECS cluster instance. Note this can take up to 25 minutes and the CloudFormation stack will not report completion until the entire build process is done.)
 
 2. Give a Stack Name and select your preferred key name. If you do not have a key available, see [Amazon EC2 Key Pairs][4].
 
@@ -62,7 +62,7 @@ The instances launched will need to have access to the internet hence either be 
 
 ### Bonus activities
 - Bonus activity #1: Repeat step 2 in the *Run the model* section, but change the config URL and training command by overriding the task definition environment variables to perform a [benchmark][6].
-- Bonus activity #2: Modify the CloudFormation template (or launch a new stack) and use a g2.8xlarge instead of g2.2xlarge (you could also try a [P2 instance][12]...) Repeat step 2 in the *Run the model* section, but override the training command in the task definition environment variables to use MPI to take advantage of all 4 GPUs: add `mpirun -np <NUMBER OF CPU>` in front of the `train` command. For this you will have to create a new revision of the task definition.
+- Bonus activity #2: Modify the CloudFormation template (or launch a new stack) and use a g2.8xlarge instead of g2.2xlarge (you could also try a [P2 instance][12]...) Repeat step 2 in the *Run the model* section, but override the training command in the task definition environment variables to use MPI to take advantage of all 4 GPUs: add `mpirun -np <NUMBER OF GPU>` in front of the `train` command. For this you will have to create a new revision of the task definition.
 
 In both bonus steps, look at the CloudWatch Logs to view the task logs (different training commands, taking advantage of multiple GPUs, etc.)
 
