@@ -18,7 +18,12 @@ In this template, we spin up an ECS Cluster with a single GPU instance in an aut
 
 Once the Cloudformation template completes, take a look at the “Outputs” tab to get an idea of where to look for your new resources. 
 
-### Prerequisistes: accepting terms
+### Prerequisistes
+
+#### Network configuration
+The instances launched will need to have access to the internet hence either be in a public subnet and provided a public IP or in a private subnet with acess to a NAT gateway.
+
+#### Accepting terms
 
 0. Accept AWS Marketplace terms for Amazon Linux AMI with NVIDIA GRID GPU Driver by going to the [MarketPlace page][9]
 
@@ -31,7 +36,7 @@ Once the Cloudformation template completes, take a look at the “Outputs” tab
 ### Launch the stack
 
 2. Choose **Launch Stack** to launch the template in the us-east-1 region in your account:
-[![Launch ECS Machine Learning into North Virginia with CloudFormation](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=ecs-service-discovery&templateURL=https://s3.amazonaws.com/ecs-machine-learning/machinelearning.template)
+[![Launch ECS Machine Learning into North Virginia with CloudFormation](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=ecs-machine-learning&templateURL=https://s3.amazonaws.com/ecs-machine-learning/machinelearning.template)
 
 (The template will build a DSSTNE container on the ECS cluster instance. Note this can take 30-45 minutes and the cloudformation stack will not report completion until the entire build process is done.)
 
